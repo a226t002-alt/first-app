@@ -1,0 +1,453 @@
+import React, { useState } from 'react';
+import { 
+  Download, User, Smile, Eye, Palette, Scissors, Shuffle, Circle, 
+  Glasses, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, 
+  ZoomIn, ZoomOut, RotateCcw 
+} from 'lucide-react';
+
+// === パーツの定義 (SVGパスで描画) ===
+const strokeColor = "#374151";
+
+const FACE_PARTS = [
+  { id: 'f1', name: '丸顔', render: (color) => <circle cx="100" cy="110" r="55" fill={color} /> },
+  { id: 'f2', name: '卵型', render: (color) => <path d="M 45 100 C 45 40 155 40 155 100 C 155 160 120 180 100 180 C 80 180 45 160 45 100 Z" fill={color} /> },
+  { id: 'f3', name: '四角', render: (color) => <rect x="45" y="60" width="110" height="100" rx="30" fill={color} /> },
+  { id: 'f4', name: 'ぽっちゃり', render: (color) => <path d="M 45 90 C 45 40 155 40 155 90 L 150 140 C 145 175 120 180 100 180 C 80 180 55 175 50 140 Z" fill={color} /> },
+];
+
+const HAIR_PARTS = [
+  { id: 'h1', name: 'なし', renderBack: () => null, renderFront: () => null },
+  { id: 'h2', name: 'ショート', renderBack: () => null, renderFront: (c) => <path d="M 35 100 C 30 30 170 30 165 100 L 155 95 C 155 60 100 60 100 60 C 100 60 45 60 45 95 Z" fill={c} /> },
+  { id: 'h3', name: 'マッシュ', renderBack: () => null, renderFront: (c) => <path d="M 30 105 C 30 20 170 20 170 105 C 170 115 160 115 155 105 C 150 90 50 90 45 105 C 40 115 30 115 30 105 Z" fill={c} /> },
+  { id: 'h4', name: 'センター分け', renderBack: () => null, renderFront: (c) => <path d="M 35 100 C 30 30 170 30 165 100 C 165 110 155 110 150 100 C 145 70 110 65 100 65 C 90 65 55 70 50 100 C 45 110 35 110 35 100 Z" fill={c} /> },
+  { id: 'h5', name: 'おかっぱ', renderBack: (c) => <path d="M 35 100 L 35 140 Q 100 160 165 140 L 165 100 Z" fill={c} />, renderFront: (c) => <path d="M 35 105 C 35 30 165 30 165 105 C 165 110 155 110 150 105 C 150 85 50 85 50 105 C 45 110 35 110 35 105 Z" fill={c} /> },
+  { id: 'h6', name: 'ロング', renderBack: (c) => <path d="M 40 100 L 30 190 L 170 190 L 160 100 Z" fill={c} />, renderFront: (c) => <path d="M 35 105 C 35 30 165 30 165 105 C 165 110 155 110 150 105 C 150 85 50 85 50 105 C 45 110 35 110 35 105 Z" fill={c} /> },
+  { id: 'h7', name: 'ツンツン', renderBack: () => null, renderFront: (c) => <path d="M 35 90 L 45 50 L 65 65 L 85 35 L 105 60 L 125 40 L 145 70 L 165 90 C 160 110 150 110 145 100 C 140 70 60 70 55 100 C 50 110 40 110 35 90 Z" fill={c} /> },
+];
+
+const EYE_PARTS = [
+  { id: 'e1', name: '点', render: () => <g><circle cx="75" cy="105" r="4.5" fill={strokeColor} /><circle cx="125" cy="105" r="4.5" fill={strokeColor} /></g> },
+  { id: 'e2', name: 'ニコニコ', render: () => <g><path d="M 65 105 Q 75 95 85 105" fill="none" stroke={strokeColor} strokeWidth="3" strokeLinecap="round"/><path d="M 115 105 Q 125 95 135 105" fill="none" stroke={strokeColor} strokeWidth="3" strokeLinecap="round"/></g> },
+  { id: 'e3', name: 'ジト目', render: () => <g><line x1="65" y1="105" x2="85" y2="105" stroke={strokeColor} strokeWidth="4" strokeLinecap="round" /><line x1="115" y1="105" x2="135" y2="105" stroke={strokeColor} strokeWidth="4" strokeLinecap="round" /></g> },
+  { id: 'e4', name: 'ぱっちり', render: () => <g><circle cx="75" cy="105" r="7" fill={strokeColor} /><circle cx="73" cy="103" r="2" fill="white" /><circle cx="125" cy="105" r="7" fill={strokeColor} /><circle cx="123" cy="103" r="2" fill="white" /></g> },
+  { id: 'e5', name: 'つり目', render: () => <g><path d="M 62 108 L 83 100" stroke={strokeColor} strokeWidth="3.5" strokeLinecap="round" /><path d="M 138 108 L 117 100" stroke={strokeColor} strokeWidth="3.5" strokeLinecap="round" /></g> },
+  { id: 'e6', name: 'たれ目', render: () => <g><path d="M 62 100 Q 75 95 85 108" fill="none" stroke={strokeColor} strokeWidth="3" strokeLinecap="round" /><path d="M 138 100 Q 125 95 115 108" fill="none" stroke={strokeColor} strokeWidth="3" strokeLinecap="round" /></g> },
+  { id: 'e7', name: '星目', render: () => <g><path d="M 75 95 L 78 102 L 85 102 L 79 106 L 81 113 L 75 109 L 69 113 L 71 106 L 65 102 L 72 102 Z" fill="#fbbf24"/><path d="M 125 95 L 128 102 L 135 102 L 129 106 L 131 113 L 125 109 L 119 113 L 121 106 L 115 102 L 122 102 Z" fill="#fbbf24"/></g> },
+];
+
+const NOSE_PARTS = [
+  { id: 'n1', name: 'なし', render: () => null },
+  { id: 'n2', name: 'ちょぼ', render: () => <circle cx="100" cy="125" r="1.5" fill={strokeColor} /> },
+  { id: 'n3', name: '縦線', render: () => <line x1="100" y1="120" x2="100" y2="128" stroke={strokeColor} strokeWidth="2" strokeLinecap="round" /> },
+  { id: 'n4', name: '三角', render: () => <path d="M 100 118 L 96 128 L 104 128 Z" fill={strokeColor} /> },
+  { id: 'n5', name: '赤鼻', render: () => <ellipse cx="100" cy="125" rx="6" ry="4" fill="#fca5a5" /> },
+  { id: 'n6', name: 'ブタ鼻', render: () => <g><ellipse cx="100" cy="125" rx="8" ry="5" fill="none" stroke={strokeColor} strokeWidth="2"/><circle cx="97" cy="125" r="1" fill={strokeColor}/><circle cx="103" cy="125" r="1" fill={strokeColor}/></g> },
+];
+
+const MOUTH_PARTS = [
+  { id: 'm1', name: '微笑み', render: () => <path d="M 85 145 Q 100 155 115 145" fill="none" stroke={strokeColor} strokeWidth="2.5" strokeLinecap="round" /> },
+  { id: 'm2', name: 'への字', render: () => <path d="M 85 150 Q 100 140 115 150" fill="none" stroke={strokeColor} strokeWidth="2.5" strokeLinecap="round" /> },
+  { id: 'm3', name: 'にっこり', render: () => <path d="M 80 142 Q 100 165 120 142 Z" fill="#ff9999" stroke={strokeColor} strokeWidth="2.5" strokeLinejoin="round" /> },
+  { id: 'm4', name: 'おちょぼ', render: () => <circle cx="100" cy="145" r="3.5" fill="none" stroke={strokeColor} strokeWidth="2.5" /> },
+  { id: 'm5', name: '猫', render: () => <path d="M 90 145 Q 95 150 100 145 Q 105 150 110 145" fill="none" stroke={strokeColor} strokeWidth="2.5" strokeLinecap="round" /> },
+  { id: 'm6', name: 'ぽかん', render: () => <ellipse cx="100" cy="148" rx="5" ry="8" fill={strokeColor} /> },
+  { id: 'm7', name: 'ベロ出し', render: () => <g><path d="M 85 145 Q 100 150 115 145" fill="none" stroke={strokeColor} strokeWidth="2.5" strokeLinecap="round"/><path d="M 95 147 L 95 155 Q 100 160 105 155 L 105 147 Z" fill="#fca5a5" stroke={strokeColor} strokeWidth="2" strokeLinejoin="round"/></g> }
+];
+
+// 新規：複数選択できるアクセサリー
+const ACCESSORY_PARTS = [
+  { id: 'a1', name: '丸メガネ', render: () => <g><circle cx="65" cy="105" r="15" fill="none" stroke={strokeColor} strokeWidth="2.5"/><circle cx="135" cy="105" r="15" fill="none" stroke={strokeColor} strokeWidth="2.5"/><line x1="80" y1="105" x2="120" y2="105" stroke={strokeColor} strokeWidth="2.5"/><line x1="50" y1="105" x2="35" y2="100" stroke={strokeColor} strokeWidth="2.5"/><line x1="150" y1="105" x2="165" y2="100" stroke={strokeColor} strokeWidth="2.5"/></g> },
+  { id: 'a2', name: 'チーク', render: () => <g><ellipse cx="55" cy="120" rx="12" ry="6" fill="#fca5a5" opacity="0.6"/><ellipse cx="145" cy="120" rx="12" ry="6" fill="#fca5a5" opacity="0.6"/></g> },
+  { id: 'a3', name: 'ほくろ(口)', render: () => <circle cx="115" cy="155" r="2" fill={strokeColor} /> },
+  { id: 'a4', name: 'ほくろ(目)', render: () => <circle cx="50" cy="115" r="2" fill={strokeColor} /> },
+  { id: 'a5', name: 'そばかす', render: () => <g fill="#d97706" opacity="0.4"><circle cx="50" cy="118" r="1.5"/><circle cx="58" cy="121" r="1.5"/><circle cx="65" cy="118" r="1.5"/><circle cx="135" cy="118" r="1.5"/><circle cx="142" cy="121" r="1.5"/><circle cx="150" cy="118" r="1.5"/></g> },
+  { id: 'a6', name: '汗', render: () => <path d="M 145 75 Q 155 90 145 95 Q 135 90 145 75" fill="#bae6fd" stroke="#38bdf8" strokeWidth="1.5" /> },
+];
+
+const SKIN_COLORS = ['#ffedd5', '#fed7aa', '#fdba74', '#fb923c', '#e7e5e4', '#d6d3d1', '#a8a29e', '#78716c', '#fecdd3', '#fbcfe8'];
+const HAIR_COLORS = ['#1c1917', '#44403c', '#78350f', '#b45309', '#f59e0b', '#dc2626', '#3b82f6', '#10b981', '#8b5cf6', '#f472b6', '#e2e8f0', '#fde047'];
+
+const PartThumbnail = ({ part, type, color }) => {
+  return (
+    <svg viewBox="0 0 200 200" className="w-full h-full p-1 drop-shadow-sm">
+      {['eyes', 'nose', 'mouth', 'accessories'].includes(type) && (
+        <circle cx="100" cy="110" r="55" fill="#f3f4f6" />
+      )}
+      {type === 'hair' ? (
+        <>
+          {part.renderBack?.(color)}
+          <circle cx="100" cy="110" r="55" fill="#f9fafb" />
+          {part.renderFront?.(color)}
+        </>
+      ) : type === 'face' ? (
+         part.render(color)
+      ) : (
+         part.render()
+      )}
+    </svg>
+  );
+};
+
+export default function App() {
+  const [activeTab, setActiveTab] = useState('face');
+  const [selectedParts, setSelectedParts] = useState({
+    face: FACE_PARTS[0].id,
+    hair: HAIR_PARTS[2].id,
+    eyes: EYE_PARTS[0].id,
+    nose: NOSE_PARTS[1].id,
+    mouth: MOUTH_PARTS[0].id,
+  });
+  
+  // 複数選択用の状態
+  const [selectedAccessories, setSelectedAccessories] = useState(['a2']);
+
+  // 位置とサイズの微調整用の状態
+  const [transforms, setTransforms] = useState({
+    eyes: { x: 0, y: 0, scale: 1 },
+    nose: { x: 0, y: 0, scale: 1 },
+    mouth: { x: 0, y: 0, scale: 1 },
+    accessories: { x: 0, y: 0, scale: 1 },
+  });
+
+  const [colors, setColors] = useState({
+    skin: SKIN_COLORS[0],
+    hair: HAIR_COLORS[0],
+  });
+
+  const currentFace = FACE_PARTS.find(p => p.id === selectedParts.face);
+  const currentHair = HAIR_PARTS.find(p => p.id === selectedParts.hair);
+  const currentEyes = EYE_PARTS.find(p => p.id === selectedParts.eyes);
+  const currentNose = NOSE_PARTS.find(p => p.id === selectedParts.nose);
+  const currentMouth = MOUTH_PARTS.find(p => p.id === selectedParts.mouth);
+
+  const TABS = [
+    { id: 'face', label: '輪郭', icon: <User size={18} /> },
+    { id: 'hair', label: '髪型', icon: <Scissors size={18} /> },
+    { id: 'eyes', label: '目', icon: <Eye size={18} /> },
+    { id: 'nose', label: '鼻', icon: <Circle size={18} /> },
+    { id: 'mouth', label: '口', icon: <Smile size={18} /> },
+    { id: 'accessories', label: 'アクセ', icon: <Glasses size={18} /> },
+    { id: 'colors', label: '色', icon: <Palette size={18} /> },
+  ];
+
+  const updatePart = (category, partId) => {
+    setSelectedParts(prev => ({ ...prev, [category]: partId }));
+  };
+
+  const toggleAccessory = (partId) => {
+    setSelectedAccessories(prev => 
+      prev.includes(partId) 
+        ? prev.filter(id => id !== partId) 
+        : [...prev, partId]
+    );
+  };
+
+  const updateColor = (category, colorValue) => {
+    setColors(prev => ({ ...prev, [category]: colorValue }));
+  };
+
+  const handleTransform = (key, value) => {
+    if (!['eyes', 'nose', 'mouth', 'accessories'].includes(activeTab)) return;
+    setTransforms(prev => ({
+      ...prev,
+      [activeTab]: { 
+        ...prev[activeTab], 
+        [key]: prev[activeTab][key] + value 
+      }
+    }));
+  };
+
+  const resetTransform = () => {
+    if (!['eyes', 'nose', 'mouth', 'accessories'].includes(activeTab)) return;
+    setTransforms(prev => ({
+      ...prev,
+      [activeTab]: { x: 0, y: 0, scale: 1 }
+    }));
+  };
+
+  const handleRandomize = () => {
+    setSelectedParts({
+      face: FACE_PARTS[Math.floor(Math.random() * FACE_PARTS.length)].id,
+      hair: HAIR_PARTS[Math.floor(Math.random() * HAIR_PARTS.length)].id,
+      eyes: EYE_PARTS[Math.floor(Math.random() * EYE_PARTS.length)].id,
+      nose: NOSE_PARTS[Math.floor(Math.random() * NOSE_PARTS.length)].id,
+      mouth: MOUTH_PARTS[Math.floor(Math.random() * MOUTH_PARTS.length)].id,
+    });
+    
+    // アクセサリーはランダムで0〜2個
+    const shuffledAcc = [...ACCESSORY_PARTS].sort(() => 0.5 - Math.random());
+    setSelectedAccessories(shuffledAcc.slice(0, Math.floor(Math.random() * 3)).map(a => a.id));
+
+    setColors({
+      skin: SKIN_COLORS[Math.floor(Math.random() * SKIN_COLORS.length)],
+      hair: HAIR_COLORS[Math.floor(Math.random() * HAIR_COLORS.length)],
+    });
+    
+    // ランダム生成時は位置をリセット
+    setTransforms({
+      eyes: { x: 0, y: 0, scale: 1 },
+      nose: { x: 0, y: 0, scale: 1 },
+      mouth: { x: 0, y: 0, scale: 1 },
+      accessories: { x: 0, y: 0, scale: 1 },
+    });
+  };
+
+  const handleDownloadPNG = () => {
+    try {
+      const svgElement = document.getElementById('avatar-svg');
+      const serializer = new XMLSerializer();
+      let svgString = serializer.serializeToString(svgElement);
+      if (!svgString.match(/^<svg[^>]+xmlns="http\:\/\/www\.w3\.org\/2000\/svg"/)) {
+          svgString = svgString.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"');
+      }
+      const img = new Image();
+      const svgBlob = new Blob([svgString], {type: "image/svg+xml;charset=utf-8"});
+      const url = URL.createObjectURL(svgBlob);
+      
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 800;
+        canvas.height = 800;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        
+        const pngUrl = canvas.toDataURL('image/png');
+        const downloadLink = document.createElement("a");
+        downloadLink.href = pngUrl;
+        downloadLink.download = "my_avatar.png";
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+        URL.revokeObjectURL(url);
+      };
+      img.src = url;
+    } catch (error) {
+      alert('画像のダウンロードに失敗しました。');
+    }
+  };
+
+  const renderTransformControls = () => {
+    if (!['eyes', 'nose', 'mouth', 'accessories'].includes(activeTab)) return null;
+    
+    return (
+      <div className="bg-white p-4 rounded-2xl border border-blue-100 shadow-sm shadow-blue-50">
+        <div className="flex justify-between items-center mb-3">
+          <span className="text-sm font-bold text-gray-700">位置・サイズの微調整</span>
+          <button onClick={resetTransform} className="text-xs text-gray-500 hover:text-blue-500 flex items-center gap-1 bg-gray-50 px-2 py-1 rounded-md transition-colors">
+            <RotateCcw size={12}/> リセット
+          </button>
+        </div>
+        <div className="flex gap-4 items-center justify-between">
+          {/* 移動（十字ボタン） */}
+          <div className="grid grid-cols-3 gap-1 w-[100px]">
+            <div />
+            <button onClick={() => handleTransform('y', -3)} className="p-1.5 bg-gray-100 rounded-md hover:bg-gray-200 hover:text-blue-600 text-gray-600 flex justify-center transition-colors"><ChevronUp size={18}/></button>
+            <div />
+            <button onClick={() => handleTransform('x', -3)} className="p-1.5 bg-gray-100 rounded-md hover:bg-gray-200 hover:text-blue-600 text-gray-600 flex justify-center transition-colors"><ChevronLeft size={18}/></button>
+            <button onClick={() => handleTransform('y', 3)} className="p-1.5 bg-gray-100 rounded-md hover:bg-gray-200 hover:text-blue-600 text-gray-600 flex justify-center transition-colors"><ChevronDown size={18}/></button>
+            <button onClick={() => handleTransform('x', 3)} className="p-1.5 bg-gray-100 rounded-md hover:bg-gray-200 hover:text-blue-600 text-gray-600 flex justify-center transition-colors"><ChevronRight size={18}/></button>
+          </div>
+          
+          <div className="w-px h-12 bg-gray-200"></div>
+
+          {/* 拡大縮小 */}
+          <div className="flex gap-2">
+             <button onClick={() => handleTransform('scale', -0.05)} className="p-3 bg-gray-100 rounded-xl hover:bg-gray-200 hover:text-blue-600 text-gray-600 transition-colors"><ZoomOut size={20}/></button>
+             <button onClick={() => handleTransform('scale', 0.05)} className="p-3 bg-gray-100 rounded-xl hover:bg-gray-200 hover:text-blue-600 text-gray-600 transition-colors"><ZoomIn size={20}/></button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderActiveTabContent = () => {
+    if (activeTab === 'colors') {
+      return (
+        <div className="space-y-8 animate-in fade-in duration-300">
+          <div>
+            <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-orange-200"></span> 肌の色
+            </h3>
+            <div className="flex flex-wrap gap-3">
+              {SKIN_COLORS.map(c => (
+                <button
+                  key={c}
+                  onClick={() => updateColor('skin', c)}
+                  className={`w-12 h-12 rounded-full shadow-sm border-4 transition-all ${colors.skin === c ? 'border-blue-400 scale-110' : 'border-white hover:scale-105'}`}
+                  style={{ backgroundColor: c }}
+                />
+              ))}
+            </div>
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-gray-800"></span> 髪の色
+            </h3>
+            <div className="flex flex-wrap gap-3">
+              {HAIR_COLORS.map(c => (
+                <button
+                  key={c}
+                  onClick={() => updateColor('hair', c)}
+                  className={`w-12 h-12 rounded-full shadow-sm border-4 transition-all ${colors.hair === c ? 'border-blue-400 scale-110' : 'border-white hover:scale-105'}`}
+                  style={{ backgroundColor: c }}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    const partsMap = {
+      face: FACE_PARTS,
+      hair: HAIR_PARTS,
+      eyes: EYE_PARTS,
+      nose: NOSE_PARTS,
+      mouth: MOUTH_PARTS,
+      accessories: ACCESSORY_PARTS,
+    };
+    
+    const partsList = partsMap[activeTab];
+    const isAccessory = activeTab === 'accessories';
+
+    return (
+      <div className="flex flex-col h-full animate-in fade-in duration-200">
+        <div className="grid grid-cols-3 sm:grid-cols-4 gap-4 pb-4">
+          {partsList.map(part => {
+            const isSelected = isAccessory 
+              ? selectedAccessories.includes(part.id)
+              : selectedParts[activeTab] === part.id;
+              
+            return (
+              <button
+                key={part.id}
+                onClick={() => isAccessory ? toggleAccessory(part.id) : updatePart(activeTab, part.id)}
+                className={`flex flex-col items-center p-2 rounded-2xl border-2 transition-all group relative
+                  ${isSelected 
+                    ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200 ring-offset-1' 
+                    : 'border-transparent bg-white hover:border-gray-300 hover:shadow-sm'
+                  }`}
+              >
+                {/* 複数選択タブの場合はチェックマークを表示 */}
+                {isAccessory && isSelected && (
+                  <div className="absolute -top-2 -right-2 bg-blue-500 text-white rounded-full p-0.5">
+                    <Circle size={14} fill="currentColor" />
+                  </div>
+                )}
+                <div className="w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center">
+                  <PartThumbnail part={part} type={activeTab} color={activeTab === 'hair' ? colors.hair : colors.skin} />
+                </div>
+                <span className={`text-xs mt-2 font-medium ${isSelected ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700'}`}>
+                  {part.name}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  // SVG用のtransform文字列を生成するヘルパー関数
+  const getTransformStyle = (category) => {
+    const t = transforms[category];
+    return {
+      transform: `translate(${t.x}px, ${t.y}px) scale(${t.scale})`,
+      transformOrigin: '100px 100px', // 顔の中心を基準にスケール
+      transition: 'transform 0.1s ease-out'
+    };
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans text-gray-800">
+      <div className="max-w-4xl mx-auto">
+        
+        <div className="flex items-center space-x-3 mb-6 px-2">
+          <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-2.5 rounded-xl text-white shadow-sm">
+            <Smile size={28} />
+          </div>
+          <div>
+            <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">アバターメーカー</h1>
+            <p className="text-sm text-gray-500 font-medium">パーツを自由に動かして微調整してみよう！</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-3xl shadow-xl overflow-hidden flex flex-col md:flex-row border border-gray-100">
+          
+          {/* 左ペイン：プレビューエリア */}
+          <div className="w-full md:w-5/12 bg-slate-100/50 p-8 flex flex-col items-center justify-center relative border-b md:border-b-0 md:border-r border-gray-100">
+            <div className="w-64 h-64 md:w-72 md:h-72 bg-white rounded-full shadow-inner border border-gray-200/60 flex items-center justify-center p-4 relative overflow-hidden">
+              <svg id="avatar-svg" viewBox="0 0 200 200" className="w-full h-full drop-shadow-md z-10 transition-all duration-300">
+                {currentHair?.renderBack?.(colors.hair)}
+                {currentFace?.render(colors.skin)}
+                
+                {/* 以下のパーツはtransformを適用 */}
+                <g style={getTransformStyle('eyes')}>{currentEyes?.render()}</g>
+                <g style={getTransformStyle('nose')}>{currentNose?.render()}</g>
+                <g style={getTransformStyle('mouth')}>{currentMouth?.render()}</g>
+                
+                {/* 複数選択されたアクセサリーを描画 */}
+                <g style={getTransformStyle('accessories')}>
+                  {ACCESSORY_PARTS.filter(p => selectedAccessories.includes(p.id)).map(acc => (
+                    <g key={acc.id}>{acc.render()}</g>
+                  ))}
+                </g>
+
+                {currentHair?.renderFront?.(colors.hair)}
+              </svg>
+            </div>
+            
+            <div className="mt-8 flex gap-3 w-full max-w-xs">
+              <button 
+                onClick={handleRandomize}
+                className="flex-1 flex items-center justify-center gap-2 py-3 px-4 bg-white text-gray-700 font-bold rounded-xl border-2 border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-colors shadow-sm"
+              >
+                <Shuffle size={18} /> ランダム
+              </button>
+              <button 
+                onClick={handleDownloadPNG}
+                className="flex-1 flex items-center justify-center gap-2 py-3 px-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors shadow-sm shadow-blue-200"
+              >
+                <Download size={18} /> 保存する
+              </button>
+            </div>
+          </div>
+          
+          {/* 右ペイン：コントローラーエリア */}
+          <div className="w-full md:w-7/12 flex flex-col h-[550px] md:h-[650px] bg-slate-50/30">
+            <div className="flex overflow-x-auto border-b border-gray-200 bg-white hide-scrollbar scroll-smooth">
+              {TABS.map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-2 py-4 px-5 whitespace-nowrap font-bold text-sm transition-colors relative
+                    ${activeTab === tab.id ? 'text-blue-600' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}
+                  `}
+                >
+                  {tab.icon}
+                  {tab.label}
+                  {activeTab === tab.id && (
+                    <span className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 rounded-t-md"></span>
+                  )}
+                </button>
+              ))}
+            </div>
+            
+            {/* パーツ一覧エリア */}
+            <div className="flex-1 overflow-y-auto p-6 custom-scrollbar relative flex flex-col">
+               {renderActiveTabContent()}
+               
+               {/* スクロール領域の最後に微調整パネルを配置（Stickyで常に下部に表示） */}
+               <div className="sticky bottom-0 pt-4 mt-auto">
+                 {renderTransformControls()}
+               </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  );
+}
